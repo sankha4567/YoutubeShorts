@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum LikeType {
+  LIKE
+  DISLIKE
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  REPLY
+  FOLLOW
+}
+
+model User {
+  id                String         @id @default(cuid())
+  clerkId           String         @unique
+  email             String         @unique
+  username          String         @unique
+  name              String?
+  bio               String?        @db.VarChar(160)
+  profilePictureUrl String?
+
+  shorts        Short[]
+  likes         Like[]
+  comments      Comment[]
+  shareLinks    ShareLink[]
+  notifications Notification[] @relation("recipient")
+
+  followers Follow[] @relation("following")
+  following Follow[] @relation("follower")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Short {
+  id             String @id @default(cuid())
+  creatorId      String
+  creator        User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?   @db.Text
+  imageKitUrl    String
+  imageKitFileId String
+  hashtags       String    @default("")
+
+  likes      Like[]
+  comments   Comment[]
+  shareLinks ShareLink[]
+  views      View[]
+
+  viewCount    Int @default(0)
+  likeCount    Int @default(0)
+  dislikeCount Int @default(0)
+  commentCount Int @default(0)
+  shareCount   Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([creatorId])
+  @@index([createdAt])
+}
+
+model Like {
+  id      String   @id @default(cuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shortId String
+  short   Short    @relation(fields: [shortId], references: [id], onDelete: Cascade)
+  type    LikeType
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, shortId])
+  @@index([shortId])
+}
+
+model Comment {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shortId String
+  short   Short  @relation(fields: [shortId], references: [id], onDelete: Cascade)
+  text    String @db.VarChar(500)
+
+  parentCommentId String?
+  parentComment   Comment?  @relation("replies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[] @relation("replies")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shortId])
+  @@index([parentCommentId])
+}
+
+model ShareLink {
+  id    String @id @default(cuid())
+  token String @unique @db.VarChar(36)
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shortId String
+  short   Short  @relation(fields: [shortId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([shortId])
+}
+
+model Follow {
+  id          String @id @default(cuid())
+  followerId  String
+  follower    User   @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User   @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model View {
+  id      String @id @default(cuid())
+  userId  String
+  shortId String
+  short   Short  @relation(fields: [shortId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, shortId])
+  @@index([shortId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  recipientId String
+  recipient   User             @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actorId     String
+  type        NotificationType
+  shortId     String?
+  commentId   String?
+  isRead      Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([recipientId])
+  @@index([recipientId, isRead])
+}

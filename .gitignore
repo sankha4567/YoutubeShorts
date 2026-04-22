@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma generated client
+/src/generated/prisma
+
+# editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
+
+# Claude Code local settings (user-specific permissions)
+.claude/settings.local.json

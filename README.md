@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# YouTube Shorts
+
+A modern short-form video sharing platform built with Next.js. Users can upload 60-second videos, follow creators, like and comment (with nested replies), and generate 24-hour shareable links.
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router) + React 19 + TypeScript
+- **Styling:** Tailwind CSS v4
+- **Auth:** Clerk
+- **Database:** NeonDB (PostgreSQL) via Prisma 7
+- **Media Storage:** ImageKit.io
+- **State / Data:** Zustand + TanStack Query
+- **Animation:** Framer Motion
+
+## Features
+
+- Email/password and Google OAuth via Clerk
+- Upload shorts (max 20 MB, 60 s) with ImageKit compression
+- Two-tab feed: "Your Shorts" (own + followed) and "Recommendations"
+- Like / dislike, threaded comments, follow system
+- Hashtag and username search
+- 24-hour expiring shareable links at `/share/[token]`
+- In-app notifications (likes, comments, replies, follows)
+- Glassmorphism dark UI
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment variables
+
+Create a `.env.local` file in the project root:
+
+```bash
+# Database (NeonDB)
+DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
+
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+CLERK_WEBHOOK_SECRET=whsec_...
+
+# ImageKit
+NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY=public_...
+IMAGEKIT_PRIVATE_KEY=private_...
+NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id/
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+### 3. Run database migrations
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
+
+### 4. Start the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Next.js dev server |
+| `npm run build` | Production build |
+| `npm run start` | Run the production build |
+| `npm run lint` | Lint with ESLint |
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/
+│   ├── (auth)/          # Sign-in / sign-up routes
+│   ├── (main)/          # Authenticated app (dashboard, profile, upload, etc.)
+│   ├── api/             # Route handlers (shorts, likes, comments, shares, webhooks)
+│   └── share/[token]/   # Public share-link landing page
+├── components/          # Reusable UI components
+├── lib/                 # Clients, hooks, utils, providers
+└── middleware.ts        # Clerk route protection
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+prisma/
+├── schema.prisma        # Data model
+└── migrations/          # Migration history
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+Deploy on [Vercel](https://vercel.com):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Push this repo to GitHub.
+2. Import the project in Vercel.
+3. Add all `.env.local` variables in the Vercel project settings.
+4. Set the Clerk webhook URL to `https://<your-domain>/api/webhooks/clerk`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Vercel will auto-deploy on every push to the default branch.
+
+## License
+
+Private project. All rights reserved.
