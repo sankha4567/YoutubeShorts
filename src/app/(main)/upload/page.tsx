@@ -113,45 +113,77 @@ export default function UploadPage() {
       if (!videoFile) throw new Error("No video file selected");
       if (!title.trim()) throw new Error("Title is required");
 
-      const formData = new FormData();
-      formData.append("videoFile", videoFile);
-      formData.append("title", title.trim());
-      formData.append("description", description.trim());
-      formData.append("hashtags", hashtagsInput.trim());
+      // Step 1: get ImageKit auth params from our server
+      const authRes = await fetch("/api/imagekit-auth");
+      if (!authRes.ok) throw new Error("Failed to get upload credentials");
+      const { token, expire, signature } = await authRes.json();
 
-      // Use XMLHttpRequest to track upload progress
-      return new Promise<UploadResponse>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
+      // Step 2: upload directly from browser to ImageKit (bypasses Vercel size limit)
+      const ikFormData = new FormData();
+      ikFormData.append("file", videoFile);
+      ikFormData.append(
+        "fileName",
+        `${Date.now()}-${videoFile.name.replace(/\s+/g, "_")}`
+      );
+      ikFormData.append(
+        "publicKey",
+        process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!
+      );
+      ikFormData.append("signature", signature);
+      ikFormData.append("expire", String(expire));
+      ikFormData.append("token", token);
+      ikFormData.append("folder", "/shorts");
 
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            setUploadProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        });
+      const ikResult = await new Promise<{ url: string; fileId: string }>(
+        (resolve, reject) => {
+          const xhr = new XMLHttpRequest();
 
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText));
-          } else {
-            let message = "Upload failed";
-            try {
-              const body = JSON.parse(xhr.responseText);
-              message = body.error || message;
-            } catch {
-              // use default message
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable) {
+              setUploadProgress(Math.round((e.loaded / e.total) * 100));
             }
-            reject(new Error(message));
-          }
-        });
+          });
 
-        xhr.addEventListener("error", () => reject(new Error("Upload failed")));
-        xhr.addEventListener("abort", () =>
-          reject(new Error("Upload cancelled"))
-        );
+          xhr.addEventListener("load", () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const data = JSON.parse(xhr.responseText);
+              resolve({ url: data.url, fileId: data.fileId });
+            } else {
+              reject(new Error("Upload to ImageKit failed"));
+            }
+          });
 
-        xhr.open("POST", "/api/shorts/upload");
-        xhr.send(formData);
+          xhr.addEventListener("error", () =>
+            reject(new Error("Upload failed"))
+          );
+          xhr.addEventListener("abort", () =>
+            reject(new Error("Upload cancelled"))
+          );
+
+          xhr.open("POST", "https://upload.imagekit.io/api/v1/files/upload");
+          xhr.send(ikFormData);
+        }
+      );
+
+      // Step 3: save metadata to our API (no file, just URL + fileId)
+      const res = await fetch("/api/shorts/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          hashtags: hashtagsInput.trim(),
+          imageKitUrl: ikResult.url,
+          imageKitFileId: ikResult.fileId,
+        }),
       });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to save short");
+      }
+
+      return res.json();
     },
     onSuccess: (data) => {
       toast.success("Short uploaded successfully!");
